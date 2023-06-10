@@ -71,7 +71,7 @@ return [
     */
 
     'timezone' => 'Asia/Jakarta',
-    
+
 
     /*
     |--------------------------------------------------------------------------
@@ -161,9 +161,13 @@ return [
          * Package Service Providers...
          */
 
+        // BaconQrCode\ServiceProvider::class,
+
+
         /*
          * Application Service Providers...
          */
+
         App\Providers\AppServiceProvider::class,
         App\Providers\AuthServiceProvider::class,
         // App\Providers\BroadcastServiceProvider::class,
@@ -184,6 +188,7 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         // 'Example' => App\Facades\Example::class,
+        'QrCode' => BaconQrCode\Facade::class,
     ])->toArray(),
 
 ];

@@ -2,7 +2,10 @@
 
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\FileController;
+use App\Http\Controllers\SignatureController;
 use Illuminate\Support\Facades\Route;
+
+use App\Models\Signature;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,9 +22,14 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    $userId = auth()->id();
+    $signature = Signature::where('user_id', $userId)->first();
+
+    return view('dashboard', ['signature' => $signature]);
 })->middleware(['auth', 'verified'])->name('dashboard');
+
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -37,6 +45,15 @@ Route::get('/files/{file}/download', [FileController::class, 'download'])->name(
 Route::get('/files/{file}/decrypt', [FileController::class, 'decrypt'])->name('decrypt-file');
 
 
+Route::resource('signatures', SignatureController::class)->names([
+    'index' => 'signatures.index',
+    'create' => 'signatures.create',
+    'store' => 'signatures.store',
+    'show' => 'signatures.show',
+    'edit' => 'signatures.edit',
+    'update' => 'signatures.update',
+    'destroy' => 'signatures.destroy',
+]);
 
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';
