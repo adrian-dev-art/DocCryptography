@@ -14,6 +14,7 @@ class Signature extends Model
         'signature_data',
         'qr_code_data',
         'signature_image',
+        'qr_signature',
     ];
 
     public function user()
@@ -22,7 +23,7 @@ class Signature extends Model
     }
 
     public function file()
-    {
+{
         return $this->belongsTo(File::class);
     }
 }

@@ -3,22 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Signature;
-
 use Illuminate\Http\Request;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Illuminate\Support\Facades\Storage;
+use phpseclib\Crypt\RSA;
 
-use BaconQrCode\Facades\QrCode;
 
 
 class SignatureController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
-    {
-        //
-    }
-
     /**
      * Show the form for creating a new resource.
      */
@@ -27,9 +20,7 @@ class SignatureController extends Controller
         return view('signatures.create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+
     /**
      * Store a newly created resource in storage.
      */
@@ -48,9 +39,6 @@ class SignatureController extends Controller
             $signatureImagePath = $signatureImage->store('signature_images', 'public');
         }
 
-        // /** @var \BaconQrCode\Response\Generator\GeneratorInterface $qrCode */
-        // $qrCode = QrCode::format('png')->generate($signatureImagePath);
-
         // Create the signature record
         Signature::create([
             'user_id' => $userId,
@@ -61,32 +49,25 @@ class SignatureController extends Controller
         return redirect()->route('dashboard')->with('success', 'Signature created successfully.');
     }
 
-
-
-
     /**
      * Display the specified resource.
      */
-    /**
-     * Display the specified resource.
-     */
+
     public function show($id)
     {
         // Get the authenticated user's ID
         $userId = auth()->id();
-
+    
         // Retrieve the signature for the authenticated user by ID
         $signature = Signature::where('user_id', $userId)->latest()->first();
     
-
-        // // Generate the QR code from the signature image
-        // $qrCode = QrCode::format('png')->generate($signature->signature_image);
-
-        return view('signatures.show', compact('signature',));
+        
+        // Generate the QR code from the signature image
+        $qrCode = QrCode::generate($signature->signature_image);
+    
+        return view('signatures.show', compact('signature', 'qrCode'));
     }
-
-
-
+    
 
     /**
      * Show the form for editing the specified resource.

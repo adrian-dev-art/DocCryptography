@@ -162,6 +162,8 @@ return [
          */
 
         // BaconQrCode\ServiceProvider::class,
+        SimpleSoftwareIO\QrCode\QrCodeServiceProvider::class,
+
 
 
         /*
@@ -188,7 +190,9 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         // 'Example' => App\Facades\Example::class,
-        'QrCode' => BaconQrCode\Facade::class,
+        // 'QrCode' => BaconQrCode\Facade::class,
+        'QrCode' => SimpleSoftwareIO\QrCode\Facades\QrCode::class
+
     ])->toArray(),
 
 ];
