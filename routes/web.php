@@ -39,10 +39,16 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::get('/send-file', [FileController::class, 'showSendFileForm'])->name('send-file');
     Route::post('/send-file', [FileController::class, 'storeFile'])->name('store-file');
-    Route::get('/files', [FileController::class, 'showFiles'])->name('showFiles');
+    Route::get('/files', [FileController::class, 'showFiles'])->name('show-files');
     Route::get('/received-files', [FileController::class, 'showReceivedFiles'])->name('received-files');
     Route::get('/files/{file}/download', [FileController::class, 'download'])->name('download-file');
     Route::get('/files/{file}/decrypt', [FileController::class, 'decrypt'])->name('decrypt-file');
+    Route::get('/files/{file}/encrypt', [FileController::class, 'encrypt'])->name('encrypt-file');
+    Route::post('/files/{file}/encrypt', [FileController::class, 'storeEncrypt'])->name('store-encrypt');
+    Route::post('/files/{file}/decrypt', [FileController::class, 'storeDecrypt'])->name('store-decrypt');
+    Route::get('/files/{file}/add-signature', [FileController::class, 'addSignature'])->name('add-signature');
+
+
 
 
     Route::resource('signatures', SignatureController::class)->names([

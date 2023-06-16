@@ -6,8 +6,16 @@ use App\Models\File;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use PhpOffice\PhpWord\PhpWord;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use PhpOffice\PhpWord\Element\Shape;
+use Spatie\Browsershot\Browsershot;
+
+use Intervention\Image\Facades\Image;
+use Intervention\Image\Facades\Image as InterventionImage;
+use PhpOffice\PhpWord\Shared\Converter;
 
 class FileController extends Controller
 {
@@ -39,51 +47,95 @@ class FileController extends Controller
         // Get the absolute file path
         $absoluteFilePath = storage_path('app/' . $filePath);
 
-        // Encrypt the file with AES-256
-        $encryptedFilePath = $this->encryptFile($absoluteFilePath);
-
         // Create a new file record
         $file = new File();
-        $file->original_file_name = $uploadedFile->getClientOriginalName(); // Updated property name
-        $file->encrypted_file_name = pathinfo($encryptedFilePath, PATHINFO_BASENAME);
+        $file->original_file_name = $uploadedFile->getClientOriginalName();
+        $file->unique_file_name = $fileName;
         $file->file_size = $uploadedFile->getSize();
-        $file->status = 'encrypted';
+        $file->status = 'uploaded';
         $file->sender_id = Auth::id();
         $file->receiver_id = $request->input('receiver');
+
+        // Generate the sign files data by combining the sign_id, user_id, and file_id
+        $signFiles = $file->signature_id . $file->sender_id . $file->id;
+
+        // Convert the sign files data to a string
+        $signFilesString = (string) $signFiles;
+
+        // Encrypt the sign files data
+        $encryptedSignFiles = Crypt::encrypt($signFilesString);
+        $file->sign_files = $encryptedSignFiles;
+
         $file->save();
 
+        // Generate the QR code from the encrypted sign files data
+        $qrCode = QrCode::size(200)->generate($encryptedSignFiles);
 
-        // Optionally, you can redirect to a success page or show a success message
+        // Optionally, you can store the QR code image and associate it with the file record
+        // You can save the QR code image using Storage facade or any image manipulation library
+
+        // Redirect to the dashboard or the appropriate view
         return redirect()->route('dashboard')->with('success', 'File sent successfully.');
+    }
+
+    public function encrypt($id)
+    {
+        $file = File::findOrFail($id);
+
+        // Ensure that the logged-in user is the sender of the file
+        if (auth()->id() !== $file->sender_id && auth()->id() !== $file->receiver_id) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        // Check if the file exists in the decrypted files directory
+        $decryptedFilePath = 'decrypted_files/' . $file->decrypted_file_name;
+        if (Storage::exists($decryptedFilePath)) {
+            $filePath = storage_path('app/' . $decryptedFilePath);
+        } else {
+            // Fall back to the uploaded files directory
+            $uploadedFilePath = 'files/' . $file->unique_file_name;
+            if (Storage::exists($uploadedFilePath)) {
+                $filePath = storage_path('app/' . $uploadedFilePath);
+            } else {
+                return redirect()->back()->with('error', 'File not found for encryption.');
+            }
+        }
+
+        // Encrypt the file
+        $encryptedFilePath = $this->encryptFile($filePath);
+
+        // Update the file status and encrypted file name
+        $file->status = 'encrypted';
+        $file->encrypted_file_name = pathinfo($encryptedFilePath, PATHINFO_BASENAME);
+        $file->save();
+
+        return redirect()->back()->with('success', 'File encrypted successfully.');
     }
 
     private function encryptFile($filePath)
     {
         // Generate a unique name for the encrypted file
-        $encryptedFileName = 'encrypted_' . time() . '_' . pathinfo($filePath, PATHINFO_BASENAME);
+        $encryptedFileName = time() . '_' . pathinfo($filePath, PATHINFO_BASENAME);
 
         // Define the path for the encrypted file
-        $encryptedFilePath = str_replace('\\', '/', storage_path('app/encrypted_files/' . $encryptedFileName));
+        $encryptedFilePath = storage_path('app/encrypted_files/' . $encryptedFileName);
 
-        // Remove any double forward slashes in the file path
-        $encryptedFilePath = preg_replace('#/+#', '/', $encryptedFilePath);
-
-        // dd(pathinfo($filePath, PATHINFO_BASENAME));
         // Create the directory if it doesn't exist
         if (!file_exists(dirname($encryptedFilePath))) {
             mkdir(dirname($encryptedFilePath), 0777, true);
         }
 
         // Read the contents of the original file
-        $fileContents = file_get_contents($filePath);
+        $fileContents = Storage::get($filePath);
+
         // Generate a 16-byte IV
         $iv = openssl_random_pseudo_bytes(16);
 
         // Encrypt the file contents using AES-256 encryption
         $encryptedContents = openssl_encrypt($fileContents, 'AES-256-CBC', 'encryption_key', 0, $iv);
 
-        // Prepend the IV to the encrypted contents and base64 encode the result
-        $encryptedData = base64_encode($iv . $encryptedContents);
+        // Prepend the IV to the encrypted contents
+        $encryptedData = $iv . $encryptedContents;
 
         // Save the encrypted contents to the encrypted file
         file_put_contents($encryptedFilePath, $encryptedData);
@@ -94,12 +146,51 @@ class FileController extends Controller
 
 
 
+
+    public function downloadFile($id)
+    {
+        $file = File::findOrFail($id);
+
+        // Check if the file exists
+        if (!Storage::exists($file->file_path)) {
+            return redirect()->back()->with('error', 'File not found.');
+        }
+
+        $filePath = storage_path('app/' . $file->file_path);
+        $fileName = $file->file_name;
+
+        // Define the headers for the download response
+        $headers = [
+            'Content-Type' => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
+        ];
+
+        // Return the file response for download
+        return response()->download($filePath, $fileName, $headers);
+    }
+
     public function showReceivedFiles()
     {
         $receivedFiles = File::where('receiver_id', auth()->id())->get();
 
+        foreach ($receivedFiles as $receivedFile) {
+            // Retrieve the encrypted sign_files data from the database
+            $encryptedData = $receivedFile->sign_files;
+
+            // Generate the QR code from the encrypted data
+            $qrCode = QrCode::size(80)->generate($encryptedData);
+
+            // Add the QR code to the $receivedFile object for use in the view
+            $receivedFile->qrCode = $qrCode;
+        }
+
         return view('received-files', compact('receivedFiles'));
     }
+
+
+
+
+
 
     public function download($id)
     {
@@ -110,17 +201,12 @@ class FileController extends Controller
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
-        if ($file->status === 'encrypted') {
-            $filePath = storage_path('app/encrypted_files/' . $file->encrypted_file_name);
-            $fileName = $file->original_file_name;
-        } elseif ($file->status === 'decrypted') {
-            $filePath = storage_path('app/decrypted_files/' . $file->decrypted_file_name);
-            $fileName = $file->original_file_name;
-        } else {
-            return redirect()->back()->with('error', 'Invalid file status.');
-        }
+        // Construct the file path
+        $filePath = storage_path('app/files/' . $file->unique_file_name);
+        $fileName = $file->original_file_name;
 
-        if (empty($filePath) || !file_exists($filePath)) {
+        // Check if the file exists
+        if (!file_exists($filePath)) {
             return redirect()->back()->with('error', 'File not found.');
         }
 
@@ -134,13 +220,63 @@ class FileController extends Controller
         return response()->download($filePath, $fileName, $headers);
     }
 
+    
+    public function addSignature(File $file)
+    {
+        $tempDirectory = 'signed_files';
+    
+        // Retrieve the existing file path
+        $filePath = storage_path('app/files/' . $file->unique_file_name);
+    
+        // Retrieve the sign_files from the database
+        $signFiles = $file->sign_files;
+    
+        $file->status = 'signed';
+        $file->save();
+    
+        // Load the existing document
+        $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+    
+        // Create a new section or use an existing section
+        $section = $phpWord->addSection();
+    
+        // Add the sign_files to the Word document
+        $section->addText($signFiles);
+    
+        // Generate the QR code as a PNG
+        $qrCodeContent = 'Your QR Code Data';
+        $qrCodeImage = QrCode::format('png')->size(200)->generate($qrCodeContent);
+    
+        // Save the QR code image to a temporary file
+        $qrCodePath = storage_path('app/' . $tempDirectory . '/qr_code.png');
+        file_put_contents($qrCodePath, $qrCodeImage);
+    
+        // Load the QR code image using Intervention Image
+        $qrCode = InterventionImage::make($qrCodePath);
+    
+        // Insert the QR code image into the Word document
+        $imagePath = storage_path('app/' . $tempDirectory . '/' . $file->unique_file_name . '_qr_code.png');
+        $qrCode->save($imagePath);
+        $section->addImage($imagePath);
+    
+        // Save the modified document to a specific directory
+        $modifiedFilePath = storage_path('app/' . $tempDirectory . '/' . $file->unique_file_name);
+        $phpWord->save($modifiedFilePath);
+    
+        return redirect()->back()->with('success', 'Signature added successfully.');
+    }
+    
+
+
+
+
 
     public function decrypt($id)
     {
         $file = File::findOrFail($id);
 
         // Ensure that the logged-in user is the receiver of the file
-        if (auth()->id() !== $file->receiver_id) {
+        if (auth()->id() !== $file->sender_id && auth()->id() !== $file->receiver_id) {
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 

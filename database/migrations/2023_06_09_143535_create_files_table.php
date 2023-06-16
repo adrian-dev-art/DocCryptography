@@ -13,14 +13,15 @@ return new class extends Migration
     {
         Schema::create('files', function (Blueprint $table) {
             $table->id();
-            // Add your desired columns here
             $table->string('original_file_name');
+            $table->string('unique_file_name')->unique();
             $table->string('encrypted_file_name')->nullable();
             $table->string('decrypted_file_name')->nullable();
-            $table->integer('file_size')->nullable(); // Added file_size column
+            $table->integer('file_size')->nullable();
             $table->unsignedBigInteger('sender_id');
             $table->unsignedBigInteger('receiver_id');
-            $table->enum('status', ['encrypted', 'decrypted', 'opened']);
+            $table->string('sign_files'); // New column for sign files
+            $table->enum('status', ['encrypted', 'decrypted', 'uploaded', 'opened', 'signed']);
             $table->timestamps();
 
             $table->foreign('sender_id')->references('id')->on('users');
@@ -30,7 +31,7 @@ return new class extends Migration
 
     /**
      * Reverse the migrations.
-     */
+     */ 
     public function down(): void
     {
         Schema::dropIfExists('files');

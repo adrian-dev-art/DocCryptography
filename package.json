@@ -19,6 +19,7 @@
     "dependencies": {
         "@zxing/library": "^0.20.0",
         "instascan": "^1.0.0",
+        "puppeteer": "^7.1.0",
         "webrtc-adapter": "^1.4.0"
     }
 }

@@ -17,6 +17,7 @@ class File extends Model
         'original_name',
         'encrypted_name',
         'decrypted_name',
+        'unique_file_name',
         'status',
         'sender_id',
         'receiver_id',
@@ -31,4 +32,10 @@ class File extends Model
     {
         return $this->belongsTo(User::class, 'receiver_id');
     }
+
+    public function signatures()
+    {
+        return $this->hasMany(Signature::class);
+    }
+
 }

@@ -59,6 +59,77 @@
         </div>
     </div>
 
+    {{-- working properly encrypt data but not for decrypted --}}
+    {{-- <div class="py-6">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="bg-white dark:bg-gray-700 shadow overflow-hidden sm:rounded-lg">
+                <div class="p-6">
+                    <h3 class="text-lg font-semibold mb-4">Sent Files History</h3>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 dark:bg-gray-600">
+                            <tr>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    File Name
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    File Size
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Receiver
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Time
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Actions
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200">
+                            @foreach ($sendedFiles as $sendedFile)
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {{ $sendedFile->original_file_name }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {{ $sendedFile->file_size }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {{ $sendedFile->status }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {{ $sendedFile->receiver->name }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        {{ $sendedFile->created_at }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if ($sendedFile->status === 'encrypted')
+                                            <a href="{{ route('decrypt-file', $sendedFile->id) }}"
+                                                class="text-blue-500 hover:text-blue-700">Decrypt</a>
+                                        @else
+                                            <a href="{{ route('encrypt-file', $sendedFile->id) }}"
+                                                class="text-green-500 hover:text-green-700">Encrypt</a>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div> --}}
+
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white dark:bg-gray-700 shadow overflow-hidden sm:rounded-lg">
@@ -87,12 +158,17 @@
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                     Time
                                 </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    Action
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200">
                             @foreach ($sendedFiles as $sendedFile)
+                                <tr>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        {{$sendedFile->original_file_name}}
+                                        {{ $sendedFile->original_file_name }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         {{ $sendedFile->file_size }}
@@ -106,6 +182,24 @@
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         {{ $sendedFile->created_at }}
                                     </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if ($sendedFile->status === 'encrypted')
+                                                <a href="{{ route('decrypt-file', $sendedFile->id) }}">Decrypt Now</a>
+                                        @else
+                                            <a href="{{ route('encrypt-file', $sendedFile->id) }}"
+                                                class="text-green-500 hover:text-green-700">Encrypt</a>
+                                        @endif
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if ($sendedFile->status === 'uploaded' )
+                                        <a href="{{ route('add-signature', $sendedFile->id) }}" target="_blank">Add
+                                            Signature</a>
+                                            @else
+                                            <a href="#">Download</a>
+                                        @endif
+                                    </td>
+
+
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -114,4 +208,6 @@
             </div>
         </div>
     </div>
+
+
 </x-app-layout>
