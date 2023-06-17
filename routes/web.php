@@ -41,7 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/send-file', [FileController::class, 'storeFile'])->name('store-file');
     Route::get('/files', [FileController::class, 'showFiles'])->name('show-files');
     Route::get('/received-files', [FileController::class, 'showReceivedFiles'])->name('received-files');
-    Route::get('/files/{file}/download', [FileController::class, 'download'])->name('download-file');
+    Route::get('/files/{file}/download', [FileController::class, 'downloadFile'])->name('download-file');
     Route::get('/files/{file}/decrypt', [FileController::class, 'decrypt'])->name('decrypt-file');
     Route::get('/files/{file}/encrypt', [FileController::class, 'encrypt'])->name('encrypt-file');
     Route::post('/files/{file}/encrypt', [FileController::class, 'storeEncrypt'])->name('store-encrypt');

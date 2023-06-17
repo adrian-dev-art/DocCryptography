@@ -184,17 +184,17 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         @if ($sendedFile->status === 'encrypted')
-                                                <a href="{{ route('decrypt-file', $sendedFile->id) }}">Decrypt Now</a>
+                                            <a href="{{ route('decrypt-file', $sendedFile->id) }}">Decrypt Now</a>
                                         @else
                                             <a href="{{ route('encrypt-file', $sendedFile->id) }}"
                                                 class="text-green-500 hover:text-green-700">Encrypt</a>
                                         @endif
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        @if ($sendedFile->status === 'uploaded' )
-                                        <a href="{{ route('add-signature', $sendedFile->id) }}" target="_blank">Add
-                                            Signature</a>
-                                            @else
-                                            <a href="#">Download</a>
+                                        @if ($sendedFile->status === 'uploaded')
+                                            <a href="{{ route('add-signature', $sendedFile->id) }}" target="_blank">Add
+                                                Signature</a>
+                                        @else
+                                            <a href="{{ route('download-file', $sendedFile->id) }}">Download</a>
                                         @endif
                                     </td>
 

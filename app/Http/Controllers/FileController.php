@@ -6,16 +6,13 @@ use App\Models\File;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use PhpOffice\PhpWord\PhpWord;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use PhpOffice\PhpWord\Element\Shape;
-use Spatie\Browsershot\Browsershot;
-
-use Intervention\Image\Facades\Image;
-use Intervention\Image\Facades\Image as InterventionImage;
+use Intervention\Image\ImageManager;
+use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\Shared\Converter;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
+use Intervention\Image\ImageManagerStatic as Image;
 
 class FileController extends Controller
 {
@@ -151,13 +148,28 @@ class FileController extends Controller
     {
         $file = File::findOrFail($id);
 
-        // Check if the file exists
-        if (!Storage::exists($file->file_path)) {
-            return redirect()->back()->with('error', 'File not found.');
+        // Determine the file path based on the file status
+        switch ($file->status) {
+            case 'encrypted':
+                $filePath = storage_path('app/encrypted_files/' . $file->encrypted_file_name);
+                $fileName = $file->encrypted_file_name;
+                break;
+            case 'decrypted':
+                $filePath = storage_path('app/decrypted_files/' . $file->decrypted_file_name);
+                $fileName = $file->decrypted_file_name;
+                break;
+            case 'signed':
+                $filePath = storage_path('app/signed_files/' . $file->unique_file_name);
+                $fileName = $file->unique_file_name;
+                break;
+            default:
+                return redirect()->back()->with('error', 'File not found.');
         }
 
-        $filePath = storage_path('app/' . $file->file_path);
-        $fileName = $file->file_name;
+        // Check if the file exists
+        if (!file_exists($filePath)) {
+            return redirect()->back()->with('error', 'File not found.');
+        }
 
         // Define the headers for the download response
         $headers = [
@@ -168,6 +180,7 @@ class FileController extends Controller
         // Return the file response for download
         return response()->download($filePath, $fileName, $headers);
     }
+
 
     public function showReceivedFiles()
     {
@@ -220,56 +233,60 @@ class FileController extends Controller
         return response()->download($filePath, $fileName, $headers);
     }
 
-    
+
     public function addSignature(File $file)
     {
         $tempDirectory = 'signed_files';
-    
+
         // Retrieve the existing file path
         $filePath = storage_path('app/files/' . $file->unique_file_name);
-    
+
         // Retrieve the sign_files from the database
         $signFiles = $file->sign_files;
-    
+
         $file->status = 'signed';
         $file->save();
-    
+
         // Load the existing document
-        $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
-    
-        // Create a new section or use an existing section
+        $phpWord = IOFactory::load($filePath);
+
+        // Get the active section or add a new section if none exists
         $section = $phpWord->addSection();
-    
-        // Add the sign_files to the Word document
-        $section->addText($signFiles);
-    
-        // Generate the QR code as a PNG
-        $qrCodeContent = 'Your QR Code Data';
-        $qrCodeImage = QrCode::format('png')->size(200)->generate($qrCodeContent);
-    
+
+        // Create a paragraph and add the sign_files content
+        $paragraph = $section->addText($signFiles);
+
+        // Generate the QR code PNG
+        $qrCodeContent = $signFiles;
+        $qrCodeImage = QrCode::format('png')->size(100)->generate($qrCodeContent);
+
         // Save the QR code image to a temporary file
         $qrCodePath = storage_path('app/' . $tempDirectory . '/qr_code.png');
-        file_put_contents($qrCodePath, $qrCodeImage);
-    
+        Storage::put($tempDirectory . '/qr_code.png', $qrCodeImage);
+
         // Load the QR code image using Intervention Image
-        $qrCode = InterventionImage::make($qrCodePath);
-    
+        $qrCode = \Intervention\Image\Facades\Image::make($qrCodePath);
+
+        // Calculate the size of the QR code image in the Word document
+        $imageWidth = Converter::cmToPixel(2); // Adjust the width as needed
+        $imageHeight = Converter::cmToPixel(2); // Adjust the height as needed
+
+        // Resize the QR code image to the desired dimensions
+        $qrCode->resize($imageWidth, $imageHeight);
+
         // Insert the QR code image into the Word document
-        $imagePath = storage_path('app/' . $tempDirectory . '/' . $file->unique_file_name . '_qr_code.png');
-        $qrCode->save($imagePath);
-        $section->addImage($imagePath);
-    
+        $section->addImage($qrCodePath, [
+            'width' => $imageWidth,
+            'height' => $imageHeight,
+            'align' => 'right',
+        ]);
+
         // Save the modified document to a specific directory
         $modifiedFilePath = storage_path('app/' . $tempDirectory . '/' . $file->unique_file_name);
         $phpWord->save($modifiedFilePath);
-    
+
         return redirect()->back()->with('success', 'Signature added successfully.');
     }
-    
-
-
-
-
 
     public function decrypt($id)
     {
