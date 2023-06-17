@@ -84,22 +84,20 @@ class FileController extends Controller
             return redirect()->back()->with('error', 'Unauthorized access.');
         }
 
-        // Check if the file exists in the decrypted files directory
-        $decryptedFilePath = 'decrypted_files/' . $file->decrypted_file_name;
-        if (Storage::exists($decryptedFilePath)) {
-            $filePath = storage_path('app/' . $decryptedFilePath);
-        } else {
-            // Fall back to the uploaded files directory
-            $uploadedFilePath = 'files/' . $file->unique_file_name;
-            if (Storage::exists($uploadedFilePath)) {
-                $filePath = storage_path('app/' . $uploadedFilePath);
-            } else {
+        // Determine the file path based on the file status
+        switch ($file->status) {
+            case 'uploaded':
+                $filePath = storage_path('app/files/' . $file->unique_file_name);
+                break;
+            case 'signed':
+                $filePath = storage_path('app/signed_files/' . $file->unique_file_name);
+                break;
+            default:
                 return redirect()->back()->with('error', 'File not found for encryption.');
-            }
         }
 
         // Encrypt the file
-        $encryptedFilePath = $this->encryptFile($filePath);
+        $encryptedFilePath = $this->encryptFile($filePath, $file->original_file_name);
 
         // Update the file status and encrypted file name
         $file->status = 'encrypted';
@@ -109,27 +107,56 @@ class FileController extends Controller
         return redirect()->back()->with('success', 'File encrypted successfully.');
     }
 
-    private function encryptFile($filePath)
+    public function decrypt($id)
+    {
+        $file = File::findOrFail($id);
+        
+        // Ensure that the logged-in user is either the sender or receiver of the file
+        if (auth()->id() !== $file->sender_id && auth()->id() !== $file->receiver_id) {
+            return redirect()->back()->with('error', 'Unauthorized access.');
+        }
+
+        // Determine the file path based on the file status
+        switch ($file->status) {
+            case 'encrypted':
+                $filePath = storage_path('app/encrypted_files/' . $file->encrypted_file_name);
+                break;
+            case 'signed':
+                $filePath = storage_path('app/signed_files/' . $file->unique_file_name);
+                break;
+            default:
+                return redirect()->back()->with('error', 'File not found for decryption.');
+        }
+
+        // Decrypt the file
+        $decryptedFilePath = $this->decryptFile($filePath, $file->original_file_name);
+
+        // Update the file status and decrypted file name
+        $file->status = 'decrypted';
+        $file->decrypted_file_name = pathinfo($decryptedFilePath, PATHINFO_BASENAME);
+        $file->save();
+
+        // Optionally, you can perform additional actions with the decrypted file.
+
+        return redirect()->back()->with('success', 'File decrypted successfully.');
+    }
+
+    private function encryptFile($filePath, $originalFileName)
     {
         // Generate a unique name for the encrypted file
-        $encryptedFileName = time() . '_' . pathinfo($filePath, PATHINFO_BASENAME);
+        $encryptedFileName = time() . '_' . $originalFileName;
 
         // Define the path for the encrypted file
         $encryptedFilePath = storage_path('app/encrypted_files/' . $encryptedFileName);
 
-        // Create the directory if it doesn't exist
-        if (!file_exists(dirname($encryptedFilePath))) {
-            mkdir(dirname($encryptedFilePath), 0777, true);
-        }
-
-        // Read the contents of the original file
-        $fileContents = Storage::get($filePath);
+        // Read the contents of the original file using the absolute file path
+        $fileContents = file_get_contents($filePath);
 
         // Generate a 16-byte IV
         $iv = openssl_random_pseudo_bytes(16);
 
-        // Encrypt the file contents using AES-256 encryption
-        $encryptedContents = openssl_encrypt($fileContents, 'AES-256-CBC', 'encryption_key', 0, $iv);
+        // Encrypt the file contents using AES-256 encryption in CBC mode
+        $encryptedContents = openssl_encrypt($fileContents, 'AES-256-CBC', 'encryption_key', OPENSSL_RAW_DATA, $iv);
 
         // Prepend the IV to the encrypted contents
         $encryptedData = $iv . $encryptedContents;
@@ -141,7 +168,30 @@ class FileController extends Controller
         return str_replace('\\', '/', $encryptedFilePath);
     }
 
+    private function decryptFile($filePath, $originalFileName)
+    {
+        // Define the path for the decrypted file
+        $decryptedFileName = time() . '_' . $originalFileName;
+        $decryptedFilePath = storage_path('app/decrypted_files/' . $decryptedFileName);
 
+        // Read the contents of the encrypted file using the absolute file path
+        $encryptedData = file_get_contents($filePath);
+
+        // Extract the IV from the encrypted data (first 16 bytes)
+        $iv = substr($encryptedData, 0, 16);
+
+        // Extract the encrypted contents from the remaining data
+        $encryptedContents = substr($encryptedData, 16);
+
+        // Decrypt the file contents using AES-256 decryption in CBC mode
+        $decryptedContents = openssl_decrypt($encryptedContents, 'AES-256-CBC', 'encryption_key', OPENSSL_RAW_DATA, $iv);
+
+        // Save the decrypted contents to the decrypted file
+        file_put_contents($decryptedFilePath, $decryptedContents);
+
+        // Return the path of the decrypted file
+        return str_replace('\\', '/', $decryptedFilePath);
+    }
 
 
     public function downloadFile($id)
@@ -200,9 +250,24 @@ class FileController extends Controller
         return view('received-files', compact('receivedFiles'));
     }
 
+    public function verifyFileStatus($token)
+    {
+        // Decrypt the token received from the QR code
+        $decryptedToken = Crypt::decrypt($token);
 
+        // Extract the IDs from the decrypted token
+        $fileId = substr($decryptedToken, 0, 1);
+        $signId = substr($decryptedToken, 1, 1);
+        $userId = substr($decryptedToken, 2);
 
+        // Retrieve the file based on the ID
+        $file = File::findOrFail($fileId);
 
+        // Perform additional checks if necessary, such as verifying the sign ID and user ID
+
+        // Return the file integrity check view with the file details
+        return view('file-integrity-check', compact('file'));
+    }
 
 
     public function download($id)
@@ -286,67 +351,5 @@ class FileController extends Controller
         $phpWord->save($modifiedFilePath);
 
         return redirect()->back()->with('success', 'Signature added successfully.');
-    }
-
-    public function decrypt($id)
-    {
-        $file = File::findOrFail($id);
-
-        // Ensure that the logged-in user is the receiver of the file
-        if (auth()->id() !== $file->sender_id && auth()->id() !== $file->receiver_id) {
-            return redirect()->back()->with('error', 'Unauthorized access.');
-        }
-
-
-        // Decrypt the file
-        $decryptedFilePath = $this->decryptFile($file->encrypted_file_name);
-
-        // Update the file status and decrypted name
-        $file->status = 'decrypted';
-        $file->decrypted_file_name = pathinfo($decryptedFilePath, PATHINFO_BASENAME);
-        $file->save();
-
-        // Optionally, you can perform additional actions with the decrypted file.
-
-        return redirect()->back()->with('success', 'File decrypted successfully.');
-    }
-
-    private function decryptFile($encryptedFileName)
-    {
-
-        // Define the path for the encrypted file
-        $encryptedFilePath = storage_path('app/encrypted_files/' . $encryptedFileName);
-
-        // Retrieve the encrypted file contents
-        $encryptedData = file_get_contents($encryptedFilePath);
-
-        // Decode the base64-encoded encrypted data
-        $encryptedData = base64_decode($encryptedData);
-
-        // Extract the IV from the encrypted data (first 16 bytes)
-        $iv = substr($encryptedData, 0, 16);
-
-        // Extract the encrypted contents from the remaining data
-        $encryptedContents = substr($encryptedData, 16);
-
-        // Decrypt the file contents using AES-256 decryption
-        $decryptedContents = openssl_decrypt($encryptedContents, 'AES-256-CBC', 'encryption_key', 0, $iv);
-
-        // Generate a unique decrypted file name based on the original file name
-        $decryptedFileName = 'decrypted_' . time() . '_' . $encryptedFileName;
-
-        // Define the path for the decrypted file
-        $decryptedFilePath = storage_path('app/decrypted_files/' . $decryptedFileName);
-
-        // Create the directory if it doesn't exist
-        if (!file_exists(dirname($decryptedFilePath))) {
-            mkdir(dirname($decryptedFilePath), 0777, true);
-        }
-
-        // Save the decrypted contents to the decrypted file
-        file_put_contents($decryptedFilePath, $decryptedContents);
-
-        // Return the path of the decrypted file
-        return str_replace('\\', '/', $decryptedFilePath);
     }
 }
