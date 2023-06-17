@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Zxing\QrReader;
+use Illuminate\Support\Facades\Crypt;
 
 
 class QRCodeController extends Controller
@@ -32,10 +33,21 @@ class QRCodeController extends Controller
         $qrcode = new QrReader($filePath);
 
         // Retrieve the scanned QR code text
-        $result = $qrcode->text();
+        $encryptedToken = $qrcode->text();
 
-        return view('result', compact('result'));
+        // Decrypt the encrypted token
+        $decryptedToken = Crypt::decrypt($encryptedToken);
+
+        // Check if the decrypted token is a valid URL
+        if (filter_var($decryptedToken, FILTER_VALIDATE_URL)) {
+            // If it's a valid URL, redirect to the link
+            return redirect()->away($decryptedToken);
+        }
+
+        // If it's not a valid URL, display the result
+        return view('result', compact('decryptedToken'));
     }
+
 
     public function showResult(Request $request)
     {

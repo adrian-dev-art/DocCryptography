@@ -14,11 +14,14 @@
                     <form action="{{ route('scan') }}" method="POST" enctype="multipart/form-data">
                         @csrf
                         <div>
-                            <label for="qr_code" class="block font-medium text-gray-700 dark:text-gray-400">Choose File</label>
+                            <label for="qr_code" class="block font-medium text-gray-700 dark:text-gray-400">Choose
+                                File</label>
                             <input type="file" id="qr_code" name="qr_code" accept="image/*" class="mt-1">
                         </div>
                         <div class="mt-4">
-                            <button type="submit" class="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300">Upload and Scan</button>
+                            <button type="submit"
+                                class="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors duration-300">Upload
+                                and Scan</button>
                         </div>
                     </form>
                 </div>
@@ -35,10 +38,13 @@
             const videoElement = document.getElementById('cameraPreview');
             const qrCodeResultElement = document.getElementById('qrCodeResult');
             let videoStream = null;
+            let scanning = true; // Flag variable to control scanning status
 
             // Function to start the camera preview
             function startCamera() {
-                navigator.mediaDevices.getUserMedia({ video: true })
+                navigator.mediaDevices.getUserMedia({
+                        video: true
+                    })
                     .then(function(stream) {
                         videoElement.srcObject = stream;
                         videoStream = stream;
@@ -51,6 +57,8 @@
 
             // Function to scan for QR codes in the video frames
             function scanQRCode() {
+                if (!scanning) return; // Stop scanning if flag is false
+
                 const videoWidth = videoElement.videoWidth;
                 const videoHeight = videoElement.videoHeight;
 
@@ -66,8 +74,15 @@
                     });
 
                     if (code) {
-                        // Redirect to the result page with the scanned QR code data
-                        window.location.href = "{{ route('result') }}?data=" + code.data;
+                        scanning = false; // Set flag to false once QR code is detected
+
+                        if (isValidURL(code.data)) {
+                            window.location.href = code
+                            .data; // Redirect to the result page if the scanned QR code is a link
+                        } else {
+                            qrCodeResultElement.innerText = code
+                            .data; // Display the text if the scanned QR code is not a link
+                        }
                     }
                 }
 
@@ -75,8 +90,19 @@
                 requestAnimationFrame(scanQRCode);
             }
 
+            // Function to check if a string is a valid URL
+            function isValidURL(str) {
+                try {
+                    new URL(str);
+                    return true;
+                } catch (_) {
+                    return false;
+                }
+            }
+
             // Start the camera preview
             startCamera();
         }
     </script>
+
 </x-app-layout>

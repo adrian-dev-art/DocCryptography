@@ -47,9 +47,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/files/{file}/encrypt', [FileController::class, 'storeEncrypt'])->name('store-encrypt');
     Route::post('/files/{file}/decrypt', [FileController::class, 'storeDecrypt'])->name('store-decrypt');
     Route::get('/files/{file}/add-signature', [FileController::class, 'addSignature'])->name('add-signature');
-    Route::get('/files/{token}/verify', [FileController::class, 'verifyFileStatus'])->name('file-integrity-check');
-
-
+    Route::get('/files/{file}/integrity-check/{token}', [FileController::class, 'fileIntegrityCheck'])->name('file-integrity-check');
+    
 
 
 

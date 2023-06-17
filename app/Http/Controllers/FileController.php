@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\File;
 use App\Models\User;
+use App\Models\Signature;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
@@ -13,6 +14,7 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\Shared\Converter;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Intervention\Image\ImageManagerStatic as Image;
+use Illuminate\Support\Str;
 
 class FileController extends Controller
 {
@@ -53,20 +55,34 @@ class FileController extends Controller
         $file->sender_id = Auth::id();
         $file->receiver_id = $request->input('receiver');
 
-        // Generate the sign files data by combining the sign_id, user_id, and file_id
-        $signFiles = $file->signature_id . $file->sender_id . $file->id;
+        // Retrieve the signature ID based on the logged-in user
+        $signatureId = Signature::where('user_id', Auth::id())->value('id');
 
-        // Convert the sign files data to a string
-        $signFilesString = (string) $signFiles;
+        // Check if a signature ID is found
+        if ($signatureId) {
+            // Convert the IDs to strings and combine them
+            $signFiles = strval($signatureId) . strval($file->sender_id) . strval($file->receiver_id);
 
-        // Encrypt the sign files data
-        $encryptedSignFiles = Crypt::encrypt($signFilesString);
-        $file->sign_files = $encryptedSignFiles;
 
-        $file->save();
+            // Split the sign_files into individual characters
+            $signFilesCharacters = str_split($signFiles);
 
-        // Generate the QR code from the encrypted sign files data
-        $qrCode = QrCode::size(200)->generate($encryptedSignFiles);
+            // Shuffle the characters
+            shuffle($signFilesCharacters);
+
+            // Combine the shuffled characters back into a string
+            $shuffledSignFiles = implode('', $signFilesCharacters);
+
+            $file->sign_files = $shuffledSignFiles;
+
+            $file->save();
+        } else {
+            // Handle the case where no signature ID is found for the logged-in user
+            return redirect()->back()->with('error', 'Signature not found for the logged-in user.');
+        }
+
+        // Generate the QR code from the shuffled sign_files data
+        // $qrCode = QrCode::size(200)->generate($shuffledSignFiles);
 
         // Optionally, you can store the QR code image and associate it with the file record
         // You can save the QR code image using Storage facade or any image manipulation library
@@ -74,6 +90,7 @@ class FileController extends Controller
         // Redirect to the dashboard or the appropriate view
         return redirect()->route('dashboard')->with('success', 'File sent successfully.');
     }
+
 
     public function encrypt($id)
     {
@@ -110,7 +127,7 @@ class FileController extends Controller
     public function decrypt($id)
     {
         $file = File::findOrFail($id);
-        
+
         // Ensure that the logged-in user is either the sender or receiver of the file
         if (auth()->id() !== $file->sender_id && auth()->id() !== $file->receiver_id) {
             return redirect()->back()->with('error', 'Unauthorized access.');
@@ -250,24 +267,7 @@ class FileController extends Controller
         return view('received-files', compact('receivedFiles'));
     }
 
-    public function verifyFileStatus($token)
-    {
-        // Decrypt the token received from the QR code
-        $decryptedToken = Crypt::decrypt($token);
 
-        // Extract the IDs from the decrypted token
-        $fileId = substr($decryptedToken, 0, 1);
-        $signId = substr($decryptedToken, 1, 1);
-        $userId = substr($decryptedToken, 2);
-
-        // Retrieve the file based on the ID
-        $file = File::findOrFail($fileId);
-
-        // Perform additional checks if necessary, such as verifying the sign ID and user ID
-
-        // Return the file integrity check view with the file details
-        return view('file-integrity-check', compact('file'));
-    }
 
 
     public function download($id)
@@ -298,7 +298,6 @@ class FileController extends Controller
         return response()->download($filePath, $fileName, $headers);
     }
 
-
     public function addSignature(File $file)
     {
         $tempDirectory = 'signed_files';
@@ -321,9 +320,27 @@ class FileController extends Controller
         // Create a paragraph and add the sign_files content
         $paragraph = $section->addText($signFiles);
 
-        // Generate the QR code PNG
-        $qrCodeContent = $signFiles;
-        $qrCodeImage = QrCode::format('png')->size(100)->generate($qrCodeContent);
+        // Generate the token by concatenating the sign_files and file ID
+        $token = $signFiles . $file->id;
+
+        // Split the token into individual characters
+        $tokenCharacters = str_split($token);
+
+        // Shuffle the characters
+        shuffle($tokenCharacters);
+
+        // Combine the shuffled characters back into a string
+        $shuffledToken = implode('', $tokenCharacters);
+
+
+        // Generate the QR code PNG from the shuffled token
+        
+        $qrCodeContent = route('file-integrity-check', ['file' => $file, 'token' => $shuffledToken]);
+
+        // encrypt the QR Content
+        $encryptedQrCodeContent = Crypt::encrypt($qrCodeContent);
+
+        $qrCodeImage = QrCode::format('png')->size(100)->generate($encryptedQrCodeContent);
 
         // Save the QR code image to a temporary file
         $qrCodePath = storage_path('app/' . $tempDirectory . '/qr_code.png');
@@ -350,6 +367,23 @@ class FileController extends Controller
         $modifiedFilePath = storage_path('app/' . $tempDirectory . '/' . $file->unique_file_name);
         $phpWord->save($modifiedFilePath);
 
+        // return redirect()->route('file-integrity-check', ['token' => $shuffledToken])->with('success', 'Signature added successfully.');
         return redirect()->back()->with('success', 'Signature added successfully.');
+    }
+
+    public function fileIntegrityCheck($fileId)
+    {
+        // Retrieve the file based on the provided file ID
+        $file = File::with(['sender', 'receiver', 'signatures.user'])->findOrFail($fileId);
+
+        // Retrieve the signature for the authenticated user by ID
+        $userId = auth()->user()->id;
+        $signature = Signature::where('user_id', $userId)->latest()->first();
+
+        // Generate the QR code from the signature image
+        $qrCode = QrCode::generate($signature->signature_image);
+
+        // Return the file integrity check view with the file details
+        return view('file-integrity-check', compact('file', 'qrCode'));
     }
 }
