@@ -52,22 +52,28 @@ class SignatureController extends Controller
     /**
      * Display the specified resource.
      */
-
+    /**
+     * Display the specified resource.
+     */ 
     public function show($id)
     {
         // Get the authenticated user's ID
         $userId = auth()->id();
-    
+
         // Retrieve the signature for the authenticated user by ID
         $signature = Signature::where('user_id', $userId)->latest()->first();
-    
-        
-        // Generate the QR code from the signature image
-        $qrCode = QrCode::generate($signature->signature_image);
-    
+
+        if ($signature && $signature->signature_image) {
+            // Generate the QR code from the signature image
+            $qrCode = QrCode::generate($signature->signature_image);
+        } else {
+            $qrCode = null;
+        }
+
         return view('signatures.show', compact('signature', 'qrCode'));
-    }
-    
+}
+
+
 
     /**
      * Show the form for editing the specified resource.
