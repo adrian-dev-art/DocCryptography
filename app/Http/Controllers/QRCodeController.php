@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\File;
+
 use Illuminate\Http\Request;
 use Zxing\QrReader;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Crypt;
+
 
 
 class QRCodeController extends Controller
@@ -33,20 +37,28 @@ class QRCodeController extends Controller
         $qrcode = new QrReader($filePath);
 
         // Retrieve the scanned QR code text
-        $encryptedToken = $qrcode->text();
+        $qrContent = $qrcode->text();
 
-        // Decrypt the encrypted token
+        // Split the QR code content by a delimiter to extract the parts
+        $parts = explode('/', $qrContent);
+
+        // Get the file ID from the parts (assuming it's the fourth part)
+        $fileId = $parts[4];
+
+
+        // Decrypt the encrypted token (assuming it's the last part)
+        $encryptedToken = end($parts);
         $decryptedToken = Crypt::decrypt($encryptedToken);
 
-        // Check if the decrypted token is a valid URL
-        if (filter_var($decryptedToken, FILTER_VALIDATE_URL)) {
-            // If it's a valid URL, redirect to the link
-            return redirect()->away($decryptedToken);
-        }
+        // Combine the decrypted token with the URL
+        $url = route('file-integrity-check', ['file' => $fileId, 'token' => $decryptedToken]);
 
-        // If it's not a valid URL, display the result
-        return view('result', compact('decryptedToken'));
+        // If it's a valid URL, redirect to the link
+        return redirect()->away($url);
+
     }
+
+
 
 
     public function showResult(Request $request)

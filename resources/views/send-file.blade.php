@@ -23,11 +23,13 @@
                             <label for="receiver_id" class="block text-gray-800 dark:text-gray-200 font-bold mb-2">
                                 Select a receiver:
                             </label>
-                            <select name="receiver" id="receiver"
-                                class="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-700 rounded-md py-2 px-4 focus:outline-none focus:ring focus:border-purple-500">
+                            <select name="receiver" id="receiver" class="w-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-700 rounded-md py-2 px-4 focus:outline-none focus:ring focus:border-purple-500">
                                 <option value="">-- Select Receiver --</option>
-                                <option value="1">receiver</option>
+                                @foreach ($receivers as $receiver)
+                                    <option value="{{ $receiver->id }}">{{ $receiver->name }}</option>
+                                @endforeach
                             </select>
+                            
                         </div>
 
                         <button type="submit"

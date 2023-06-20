@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Signature;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File as FileFacade;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
@@ -19,7 +20,11 @@ use Dompdf\Dompdf;
 use Barryvdh\DomPDF\PDF;
 use Symfony\Component\HttpFoundation\Response;
 use PhpOffice\PhpWord\Settings;
-
+use BaconQrCode\Renderer\Image\Png;
+use BaconQrCode\Writer;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Renderer\Image\ImagickImageBackEnd;
 
 
 
@@ -330,28 +335,31 @@ class FileController extends Controller
         // Generate the token by concatenating the sign_files and file ID
         $token = $signFiles . $file->id;
 
-        // Split the token into individual characters
-        $tokenCharacters = str_split($token);
+        // Encrypt the token
+        $encryptedToken = Crypt::encrypt($token);
 
-        // Shuffle the characters
-        shuffle($tokenCharacters);
+        // Generate the QR code content
+        $qrCodeContent = route('file-integrity-check', ['file' => $file, 'token' => $encryptedToken]);
 
-        // Combine the shuffled characters back into a string
-        $shuffledToken = implode('', $tokenCharacters);
+        // Create an instance of the image renderer
+        $renderer = new ImageRenderer(
+            new RendererStyle(400),
+            new ImagickImageBackEnd()
+        );
 
+        // Create an instance of the QR code writer
+        $writer = new Writer($renderer);
 
-        // Generate the QR code PNG from the shuffled token
+        // Generate the QR code image
+        $qrCodeImage = $writer->writeString($qrCodeContent);
 
-        $qrCodeContent = route('file-integrity-check', ['file' => $file, 'token' => $shuffledToken]);
-
-        // encrypt the QR Content
-        $encryptedQrCodeContent = Crypt::encrypt($qrCodeContent);
-
-        $qrCodeImage = QrCode::format('png')->size(100)->generate($encryptedQrCodeContent);
+        // Create the signed_files directory if it doesn't exist
+        $signedFilesDirectory = storage_path('app/' . $tempDirectory);
+        FileFacade::makeDirectory($signedFilesDirectory, 0755, true, true);
 
         // Save the QR code image to a temporary file
-        $qrCodePath = storage_path('app/' . $tempDirectory . '/qr_code.png');
-        Storage::put($tempDirectory . '/qr_code.png', $qrCodeImage);
+        $qrCodePath = $signedFilesDirectory . '/qr_code.png';
+        file_put_contents($qrCodePath, $qrCodeImage);
 
         // Load the QR code image using Intervention Image
         $qrCode = \Intervention\Image\Facades\Image::make($qrCodePath);
@@ -371,12 +379,12 @@ class FileController extends Controller
         ]);
 
         // Save the modified document to a specific directory
-        $modifiedFilePath = storage_path('app/' . $tempDirectory . '/' . $file->unique_file_name);
+        $modifiedFilePath = $signedFilesDirectory . '/' . $file->unique_file_name;
         $phpWord->save($modifiedFilePath);
 
-        // return redirect()->route('file-integrity-check', ['token' => $shuffledToken])->with('success', 'Signature added successfully.');
         return redirect()->back()->with('success', 'Signature added successfully.');
     }
+
 
     // public function fileIntegrityCheck($fileId)
     // {
@@ -458,6 +466,9 @@ class FileController extends Controller
         // Define the path for the PDF file
         $pdfFilePath = storage_path('app/pdf_files/' . $pdfFileName);
 
+        // Create the directory if it doesn't exist
+        Storage::makeDirectory(dirname($pdfFilePath), 0755, true, true);
+        
         // Load the file using PhpWord
         $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
 
