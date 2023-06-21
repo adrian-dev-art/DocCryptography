@@ -48,7 +48,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/files/{file}/decrypt', [FileController::class, 'storeDecrypt'])->name('store-decrypt');
     Route::get('/files/{file}/add-signature', [FileController::class, 'addSignature'])->name('add-signature');
     Route::get('/files/{file}/integrity-check/{token}', [FileController::class, 'fileIntegrityCheck'])->name('file-integrity-check');
-    
+    Route::get('/preview-pdf/{fileId}', [QRCodeController::class, 'previewPdf'])->name('preview-pdf');
+
 
 
 

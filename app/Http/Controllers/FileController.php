@@ -468,24 +468,17 @@ class FileController extends Controller
 
         // Create the directory if it doesn't exist
         Storage::makeDirectory(dirname($pdfFilePath), 0755, true, true);
-        
+
         // Load the file using PhpWord
         $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
 
         // Configure PhpWord to use the Dompdf PDF renderer
-        Settings::setPdfRendererPath(base_path('vendor/dompdf/dompdf'));
-        Settings::setPdfRendererName('DomPDF');
+        \PhpOffice\PhpWord\Settings::setPdfRenderer(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF, base_path('vendor/dompdf/dompdf'));
 
         // Save the PhpWord document as PDF
         $phpWord->save($pdfFilePath, 'PDF');
 
-        // Return the PDF file as a response
-        return response()->file($pdfFilePath, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline; filename="' . $pdfFileName . '"',
-        ]);
-
         // Return the file and PDF file paths to the view
-        // return view('file-integrity-check', compact('file', 'pdfFileName', 'pdfFilePath'));
+        return view('file-integrity-check', compact('file', 'pdfFileName', 'pdfFilePath'));
     }
 }
