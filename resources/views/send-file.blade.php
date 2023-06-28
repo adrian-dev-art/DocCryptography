@@ -107,7 +107,7 @@
                                                 </a>
                                             @endif
                                             @if ($sendedFile->status === 'uploaded')
-                                                <a href="{{ route('add-signature', $sendedFile->id) }}" target="_blank"
+                                                <a href="{{ route('add-signature', $sendedFile->id) }}"
                                                     class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-600 transition-colors duration-200 ml-2">
                                                     Add Signature
                                                 </a>

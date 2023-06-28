@@ -10,21 +10,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File as FileFacade;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\ImageManager;
-use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\Shared\Converter;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
-use Intervention\Image\ImageManagerStatic as Image;
-use Illuminate\Support\Str;
-use Dompdf\Dompdf;
-use Barryvdh\DomPDF\PDF;
-use Symfony\Component\HttpFoundation\Response;
-use PhpOffice\PhpWord\Settings;
-use BaconQrCode\Renderer\Image\Png;
 use BaconQrCode\Writer;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Renderer\Image\ImagickImageBackEnd;
+use PhpOffice\PhpWord\TemplateProcessor;
 
 
 
@@ -100,7 +92,7 @@ class FileController extends Controller
         // You can save the QR code image using Storage facade or any image manipulation library
 
         // Redirect to the dashboard or the appropriate view
-        return redirect()->route('dashboard')->with('success', 'File sent successfully.');
+        return redirect()->back()->with('success', 'File sent successfully.');
     }
 
 
@@ -323,14 +315,8 @@ class FileController extends Controller
         $file->status = 'signed';
         $file->save();
 
-        // Load the existing document
-        $phpWord = IOFactory::load($filePath);
-
-        // Get the active section or add a new section if none exists
-        $section = $phpWord->addSection();
-
-        // Create a paragraph and add the sign_files content
-        $paragraph = $section->addText($signFiles);
+        // Load the existing document using TemplateProcessor
+        $templateProcessor = new TemplateProcessor($filePath);
 
         // Generate the token by concatenating the sign_files and file ID
         $token = $signFiles . $file->id;
@@ -361,29 +347,99 @@ class FileController extends Controller
         $qrCodePath = $signedFilesDirectory . '/qr_code.png';
         file_put_contents($qrCodePath, $qrCodeImage);
 
-        // Load the QR code image using Intervention Image
-        $qrCode = \Intervention\Image\Facades\Image::make($qrCodePath);
-
         // Calculate the size of the QR code image in the Word document
-        $imageWidth = Converter::cmToPixel(2); // Adjust the width as needed
-        $imageHeight = Converter::cmToPixel(2); // Adjust the height as needed
+        $imageWidth = Converter::cmToPixel(4); // Adjust the width as needed
+        $imageHeight = Converter::cmToPixel(4); // Adjust the height as needed
 
-        // Resize the QR code image to the desired dimensions
-        $qrCode->resize($imageWidth, $imageHeight);
+        // Find and replace the placeholder with the image in the document
+        $templateProcessor->setImageValue('qr_code', $qrCodePath, $imageWidth, $imageHeight);
 
-        // Insert the QR code image into the Word document
-        $section->addImage($qrCodePath, [
-            'width' => $imageWidth,
-            'height' => $imageHeight,
-            'align' => 'right',
-        ]);
+        // Remove the sign_files content from the document
+        $templateProcessor->setValue('sign_files', '');
 
         // Save the modified document to a specific directory
         $modifiedFilePath = $signedFilesDirectory . '/' . $file->unique_file_name;
-        $phpWord->save($modifiedFilePath);
+        $templateProcessor->saveAs($modifiedFilePath);
 
         return redirect()->back()->with('success', 'Signature added successfully.');
     }
+
+
+
+    // public function addSignature(File $file)
+    // {
+    //     $tempDirectory = 'signed_files';
+
+    //     // Retrieve the existing file path
+    //     $filePath = storage_path('app/files/' . $file->unique_file_name);
+
+    //     // Retrieve the sign_files from the database
+    //     $signFiles = $file->sign_files;
+
+    //     $file->status = 'signed';
+    //     $file->save();
+
+    //     // Load the existing document
+    //     $phpWord = IOFactory::load($filePath);
+
+    //     // Get the active section or add a new section if none exists
+    //     $section = $phpWord->addSection();
+
+    //     // Create a paragraph and add the sign_files content
+    //     $paragraph = $section->addText($signFiles);
+
+    //     // Generate the token by concatenating the sign_files and file ID
+    //     $token = $signFiles . $file->id;
+
+    //     // Encrypt the token
+    //     $encryptedToken = Crypt::encrypt($token);
+
+    //     // Generate the QR code content
+    //     $qrCodeContent = route('file-integrity-check', ['file' => $file, 'token' => $encryptedToken]);
+
+    //     // Create an instance of the image renderer
+    //     $renderer = new ImageRenderer(
+    //         new RendererStyle(400),
+    //         new ImagickImageBackEnd()
+    //     );
+
+    //     // Create an instance of the QR code writer
+    //     $writer = new Writer($renderer);
+
+    //     // Generate the QR code image
+    //     $qrCodeImage = $writer->writeString($qrCodeContent);
+
+    //     // Create the signed_files directory if it doesn't exist
+    //     $signedFilesDirectory = storage_path('app/' . $tempDirectory);
+    //     FileFacade::makeDirectory($signedFilesDirectory, 0755, true, true);
+
+    //     // Save the QR code image to a temporary file
+    //     $qrCodePath = $signedFilesDirectory . '/qr_code.png';
+    //     file_put_contents($qrCodePath, $qrCodeImage);
+
+    //     // Load the QR code image using Intervention Image
+    //     $qrCode = \Intervention\Image\Facades\Image::make($qrCodePath);
+
+    //     // Calculate the size of the QR code image in the Word document
+    //     $imageWidth = Converter::cmToPixel(2); // Adjust the width as needed
+    //     $imageHeight = Converter::cmToPixel(2); // Adjust the height as needed
+
+    //     // Resize the QR code image to the desired dimensions
+    //     $qrCode->resize($imageWidth, $imageHeight);
+
+    //     // Insert the QR code image into the Word document
+    //     $section->addImage($qrCodePath, [
+    //         'width' => $imageWidth,
+    //         'height' => $imageHeight,
+    //         'align' => 'right',
+    //     ]);
+
+    //     // Save the modified document to a specific directory
+    //     $modifiedFilePath = $signedFilesDirectory . '/' . $file->unique_file_name;
+    //     $phpWord->save($modifiedFilePath);
+
+    //     return redirect()->back()->with('success', 'Signature added successfully.');
+    // }
 
 
     // public function fileIntegrityCheck($fileId)
@@ -431,54 +487,111 @@ class FileController extends Controller
     // }
 
 
+    // public function fileIntegrityCheck($fileId)
+    // {
+    //     // Retrieve the file based on the provided file ID
+    //     $file = File::with(['sender', 'receiver', 'signatures.user'])->findOrFail($fileId);
+
+    //     // Determine the directory based on the file status
+    //     $directory = '';
+
+    //     switch ($file->status) {
+    //         case 'uploaded':
+    //             $directory = 'files';
+    //             break;
+    //         case 'signed':
+    //             $directory = 'signed_files';
+    //             break;
+    //         case 'encrypted':
+    //             $directory = 'encrypted_files';
+    //             break;
+    //         case 'decrypted':
+    //             $directory = 'decrypted_files';
+    //             break;
+    //         default:
+    //             // Handle the case when the file status is unknown
+    //             return redirect()->back()->with('error', 'Unknown file status.');
+    //     }
+
+    //     // Define the path to the file
+    //     $filePath = storage_path('app/' . $directory . '/' . $file->unique_file_name);
+
+
+    //     // Generate a unique name for the PDF file
+    //     $pdfFileName = time() . '_' . $file->original_file_name . '.pdf';
+
+
+    //     // Define the path for the PDF file
+    //     $pdfFilePath = storage_path('app/pdf_files/' . $pdfFileName);
+
+    //     // Create the directory if it doesn't exist
+    //     // Storage::makeDirectory(dirname($pdfFilePath), 0755, true, true);
+
+    //     // Load the file using PhpWord
+    //     $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+
+
+    //     // Configure PhpWord to use the Dompdf PDF renderer
+    //     \PhpOffice\PhpWord\Settings::setPdfRenderer(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF, base_path('vendor/dompdf/dompdf'));
+
+    //     // Save the PhpWord document as PDF
+    //     $phpWord->save($pdfFilePath, 'PDF');
+
+    //     // Return the file and PDF file paths to the view
+    //     return view('file-integrity-check', compact('file', 'pdfFileName', 'pdfFilePath'));
+    // }
+
     public function fileIntegrityCheck($fileId)
     {
         // Retrieve the file based on the provided file ID
         $file = File::with(['sender', 'receiver', 'signatures.user'])->findOrFail($fileId);
 
-        // Determine the directory based on the file status
-        $directory = '';
+        // // Determine the directory based on the file status
+        // $directory = '';
 
-        switch ($file->status) {
-            case 'uploaded':
-                $directory = 'files';
-                break;
-            case 'signed':
-                $directory = 'signed_files';
-                break;
-            case 'encrypted':
-                $directory = 'encrypted_files';
-                break;
-            case 'decrypted':
-                $directory = 'decrypted_files';
-                break;
-            default:
-                // Handle the case when the file status is unknown
-                return redirect()->back()->with('error', 'Unknown file status.');
-        }
+        // switch ($file->status) {
+        //     case 'uploaded':
+        //         $directory = 'files';
+        //         break;
+        //     case 'signed':
+        //         $directory = 'signed_files';
+        //         break;
+        //     case 'encrypted':
+        //         $directory = 'encrypted_files';
+        //         break;
+        //     case 'decrypted':
+        //         $directory = 'decrypted_files';
+        //         break;
+        //     default:
+        //         // Handle the case when the file status is unknown
+        //         return redirect()->back()->with('error', 'Unknown file status.');
+        // }
 
-        // Define the path to the file
-        $filePath = storage_path('app/' . $directory . '/' . $file->unique_file_name);
+        // // Define the path to the file
+        // $filePath = storage_path('app/' . $directory . '/' . $file->unique_file_name);
 
-        // Generate a unique name for the PDF file
-        $pdfFileName = time() . '_' . $file->original_file_name . '.pdf';
 
-        // Define the path for the PDF file
-        $pdfFilePath = storage_path('app/pdf_files/' . $pdfFileName);
+        // // Generate a unique name for the PDF file
+        // $pdfFileName = time() . '_' . $file->original_file_name . '.pdf';
 
-        // Create the directory if it doesn't exist
-        Storage::makeDirectory(dirname($pdfFilePath), 0755, true, true);
 
-        // Load the file using PhpWord
-        $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+        // // Define the path for the PDF file
+        // $pdfFilePath = storage_path('app/pdf_files/' . $pdfFileName);
 
-        // Configure PhpWord to use the Dompdf PDF renderer
-        \PhpOffice\PhpWord\Settings::setPdfRenderer(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF, base_path('vendor/dompdf/dompdf'));
+        // // Create the directory if it doesn't exist
+        // // Storage::makeDirectory(dirname($pdfFilePath), 0755, true, true);
 
-        // Save the PhpWord document as PDF
-        $phpWord->save($pdfFilePath, 'PDF');
+        // // Load the file using PhpWord
+        // $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+
+
+        // // Configure PhpWord to use the Dompdf PDF renderer
+        // \PhpOffice\PhpWord\Settings::setPdfRenderer(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF, base_path('vendor/dompdf/dompdf'));
+
+        // // Save the PhpWord document as PDF
+        // $phpWord->save($pdfFilePath, 'PDF');
 
         // Return the file and PDF file paths to the view
-        return view('file-integrity-check', compact('file', 'pdfFileName', 'pdfFilePath'));
+        return view('file-integrity-check', compact('file'));
     }
 }

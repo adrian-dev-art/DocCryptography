@@ -61,56 +61,115 @@ class QRCodeController extends Controller
         return redirect()->away($url);
     }
 
+    // public function previewPdf($fileId)
+    // {
+    //     // Retrieve the file based on the provided file ID
+    //     $file = File::findOrFail($fileId);
+
+    //     // Determine the directory based on the file status
+    //     $directory = '';
+
+    //     switch ($file->status) {
+    //         case 'uploaded':
+    //             $directory = 'files';
+    //             break;
+    //         case 'signed':
+    //             $directory = 'signed_files';
+    //             break;
+    //         case 'encrypted':
+    //             $directory = 'encrypted_files';
+    //             break;
+    //         case 'decrypted':
+    //             $directory = 'decrypted_files';
+    //             break;
+    //         default:
+    //             // Handle the case when the file status is unknown
+    //             return redirect()->back()->with('error', 'Unknown file status.');
+    //     }
+
+    //     // Define the path to the file
+    //     $filePath = storage_path('app/' . $directory . '/' . $file->unique_file_name);
+
+    //     dd($filePath);
+
+    //     // Load the file using PhpWord
+    //     $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+
+    //     // Generate a unique name for the PDF file
+    //     $pdfFileName = time() . '_' . $file->original_file_name . '.pdf';
+
+    //     // Define the path for the PDF file
+    //     $pdfFilePath = storage_path('app/pdf_files/' . $pdfFileName);
+
+    //     // Configure PhpWord to use the Dompdf PDF renderer
+    //     \PhpOffice\PhpWord\Settings::setPdfRenderer(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF, base_path('vendor/dompdf/dompdf'));
+
+    //     // Save the PhpWord document as PDF
+    //     $phpWord->save($pdfFilePath, 'PDF');
+
+    //     // Return the PDF file as a response
+    //     return response()->file($pdfFilePath, [
+    //         'Content-Type' => 'application/pdf',
+    //         'Content-Disposition' => 'inline; filename="' . $pdfFileName . '"',
+    //     ]);
+    // }
+
     public function previewPdf($fileId)
-{
-    // Retrieve the file based on the provided file ID
-    $file = File::findOrFail($fileId);
+    {
+        // Retrieve the file based on the provided file ID
+        $file = File::findOrFail($fileId);
 
-    // Determine the directory based on the file status
-    $directory = '';
+        // Determine the directory and file name based on the file status
+        $directory = '';
+        $fileName = '';
 
-    switch ($file->status) {
-        case 'uploaded':
-            $directory = 'files';
-            break;
-        case 'signed':
-            $directory = 'signed_files';
-            break;
-        case 'encrypted':
-            $directory = 'encrypted_files';
-            break;
-        case 'decrypted':
-            $directory = 'decrypted_files';
-            break;
-        default:
-            // Handle the case when the file status is unknown
-            return redirect()->back()->with('error', 'Unknown file status.');
+        switch ($file->status) {
+            case 'uploaded':
+                $directory = 'files';
+                $fileName = $file->unique_file_name;
+                break;
+            case 'signed':
+                $directory = 'signed_files';
+                $fileName = $file->unique_file_name;
+                break;
+            case 'encrypted':
+                $directory = 'encrypted_files';
+                $fileName = $file->encrypted_file_name;
+                break;
+            case 'decrypted':
+                $directory = 'decrypted_files';
+                $fileName = $file->decrypted_file_name;
+                break;
+            default:
+                // Handle the case when the file status is unknown
+                return redirect()->back()->with('error', 'Unknown file status.');
+        }
+
+        // Define the path to the file
+        $filePath = storage_path('app/' . $directory . '/' . $fileName);
+
+        // Load the file using PhpWord
+        $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+
+        // Generate a unique name for the PDF file
+        $pdfFileName = time() . '_' . $file->original_file_name . '.pdf';
+
+        // Define the path for the PDF file
+        $pdfFilePath = storage_path('app/pdf_files/' . $pdfFileName);
+
+        // Configure PhpWord to use the Dompdf PDF renderer
+        \PhpOffice\PhpWord\Settings::setPdfRenderer(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF, base_path('vendor/dompdf/dompdf'));
+
+        // Save the PhpWord document as PDF
+        $phpWord->save($pdfFilePath, 'PDF');
+
+        // Return the PDF file as a response
+        return response()->file($pdfFilePath, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $pdfFileName . '"',
+        ]);
     }
 
-    // Define the path to the file
-    $filePath = storage_path('app/' . $directory . '/' . $file->unique_file_name);
-
-    // Load the file using PhpWord
-    $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
-
-    // Generate a unique name for the PDF file
-    $pdfFileName = time() . '_' . $file->original_file_name . '.pdf';
-
-    // Define the path for the PDF file
-    $pdfFilePath = storage_path('app/pdf_files/' . $pdfFileName);
-
-    // Configure PhpWord to use the Dompdf PDF renderer
-    \PhpOffice\PhpWord\Settings::setPdfRenderer(\PhpOffice\PhpWord\Settings::PDF_RENDERER_DOMPDF, base_path('vendor/dompdf/dompdf'));
-
-    // Save the PhpWord document as PDF
-    $phpWord->save($pdfFilePath, 'PDF');
-
-    // Return the PDF file as a response
-    return response()->file($pdfFilePath, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'inline; filename="' . $pdfFileName . '"',
-    ]);
-}
 
 
 

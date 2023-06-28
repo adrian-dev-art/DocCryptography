@@ -14,6 +14,7 @@
                         <div class="mr-8">
                             <label class="block font-medium text-gray-800 dark:text-gray-200 mb-2">{{ __('Signature Image') }}</label>
                             <img src="{{ asset('storage/' . $signature->signature_image) }}" alt="Signature Image" class="h-64">
+                            <p class="text-center text-gray-800 dark:text-gray-200 mt-4 text-2xl">{{ $signature->user->name }}</p>
                         </div>
 
                         <div class="bg-white dark:bg-gray-700 p-6 m-5 rounded-lg">
