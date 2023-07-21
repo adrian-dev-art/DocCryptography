@@ -4,6 +4,7 @@
             {{ __('Send File') }}
         </h2>
     </x-slot>
+    
 
     <div class="flex justify-center items-center py-8">
         <div class="w-full max-w-7xl px-6">

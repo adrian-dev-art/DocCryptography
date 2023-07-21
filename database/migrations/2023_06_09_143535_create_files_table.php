@@ -22,6 +22,8 @@ return new class extends Migration
             $table->unsignedBigInteger('receiver_id');
             $table->string('sign_files'); // New column for sign files
             $table->enum('status', ['encrypted', 'decrypted', 'uploaded', 'opened', 'signed']);
+            $table->text('signature')->nullable();
+            $table->text('public_key')->nullable();
             $table->timestamps();
 
             $table->foreign('sender_id')->references('id')->on('users');

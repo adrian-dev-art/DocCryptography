@@ -17,6 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('file_id')->nullable();
             $table->string('signature_image')->nullable();
             $table->string('qr_signature')->nullable();
+            // $table->text('signature_data');
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users');

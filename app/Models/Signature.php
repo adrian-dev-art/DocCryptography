@@ -15,6 +15,7 @@ protected $fillable = [
     'qr_code_data',
     'signature_image',
     'qr_signature',
+    'signature_data',
 ];
 
 public function user()

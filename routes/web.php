@@ -70,6 +70,8 @@ Route::get('/scan', [QRCodeController::class, 'showScanForm'])->name('scan.form'
 Route::post('/scan', [QRCodeController::class, 'scan'])->name('scan');
 Route::get('/result', [QRCodeController::class, 'showResult'])->name('result');
 
+Route::get('/sign-file/{file}', [FileController::class, 'signFile'])->name('sign-file');
+Route::get('/verify-file/{file}', [FileController::class, 'verifyFile'])->name('verify-file');
 
 
 

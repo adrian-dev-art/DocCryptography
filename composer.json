@@ -17,6 +17,7 @@
         "laravel/tinker": "^2.8",
         "phpoffice/phpword": "^1.1",
         "phpseclib/phpseclib": "^3.0",
+        "realrashid/sweet-alert": "^7.0",
         "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/browsershot": "^3.57",
         "spatie/image": "^2.2"

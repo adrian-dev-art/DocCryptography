@@ -104,4 +104,42 @@
             </div>
         </div>
     </div>
+
+    <!-- Add the "Stop Toast" button -->
+    @if (session('received'))
+        <button id="stopToastBtn" class="btn btn-danger" style="display: none;">Stop Toast</button>
+    @endif
+
+    <!-- Add the SweetAlert2 JS script at the end of your HTML body -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
+    <script>
+        // Function to show the toast
+        function showToast(message) {
+            Swal.fire({
+                icon: 'success',
+                title: 'New File Received!',
+                text: message,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                onClose: function() {
+                    // When the toast is closed, show the "Stop Toast" button
+                    document.getElementById('stopToastBtn').style.display = 'block';
+                }
+            });
+        }
+
+        // Show the toast if there are new files received in the session
+        @if (session('received'))
+            showToast('{{ session('received') }}');
+        @endif
+
+        // Add an event listener to the "Stop Toast" button
+        $('#stopToastBtn').on('click', function() {
+            // Hide the button
+            $(this).hide();
+        });
+    </script>
+
 </x-app-layout>

@@ -21,6 +21,8 @@ class File extends Model
         'status',
         'sender_id',
         'receiver_id',
+        'signature',
+
     ];
 
     public function sender()
