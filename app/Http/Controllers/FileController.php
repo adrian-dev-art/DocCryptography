@@ -20,6 +20,10 @@ use PhpOffice\PhpWord\TemplateProcessor;
 use Carbon\Carbon;
 use Alert;
 use Illuminate\Support\Facades\Session;
+use ValueError;
+use Illuminate\Support\Facades\DB; // Import the DB facade
+
+
 
 class FileController extends Controller
 {
@@ -115,6 +119,9 @@ class FileController extends Controller
             case 'signed':
                 $filePath = storage_path('app/signed_files/' . $file->unique_file_name);
                 break;
+            case 'decrypted':
+                $filePath = storage_path('app/decrypted_files/' . $file->decrypted_file_name);
+                break;
             default:
                 return redirect()->back()->with('error', 'File not found for encryption.');
         }
@@ -140,6 +147,7 @@ class FileController extends Controller
         }
 
         // Determine the file path based on the file status
+
         switch ($file->status) {
             case 'encrypted':
                 $filePath = storage_path('app/encrypted_files/' . $file->encrypted_file_name);
@@ -313,13 +321,38 @@ class FileController extends Controller
 
     public function addSignature(File $file)
     {
-        // Sign the file using RSA
-        $this->signFileWithRSA($file);
+        try {
+            // Start a database transaction
+            DB::beginTransaction();
 
-        // Add the QR code to the document
-        $this->addQRCodeToDocument($file);
+            // Sign the file using RSA
+            $this->signFileWithRSA($file);
 
-        return redirect()->back()->with('success', 'Signature added successfully.');
+            // Add the QR code to the document
+            $this->addQRCodeToDocument($file);
+
+            // Commit the transaction if everything is successful
+            DB::commit();
+
+            return redirect()->back()->with('success', 'Signature added successfully.');
+        } catch (\ValueError $ve) {
+            // Rollback the transaction and reset status to "uploaded"
+            DB::rollBack();
+            $this->resetStatusToUploaded($file);
+
+            return redirect()->back()->with('error', 'A ValueError occurred while processing the signature. Status changed to "uploaded".');
+        } catch (\Exception $e) {
+            // Rollback the transaction if any other exception occurs
+            DB::rollBack();
+
+            return redirect()->back()->with('error', 'An error occurred while adding the signature.');
+        }
+    }
+
+    private function resetStatusToUploaded(File $file)
+    {
+        $file->status = 'uploaded';
+        $file->save();
     }
 
     private function signFileWithRSA(File $file)
@@ -356,6 +389,8 @@ class FileController extends Controller
         $signFiles = $file->sign_files;
 
         $file->status = 'signed';
+        $file->unique_file_name = time() . '_signed_' . $file->original_file_name;
+
         $file->save();
 
         // Load the existing document using TemplateProcessor
@@ -404,6 +439,7 @@ class FileController extends Controller
         $modifiedFilePath = $signedFilesDirectory . '/' . $file->unique_file_name;
         $templateProcessor->saveAs($modifiedFilePath);
     }
+
 
 
     public function fileIntegrityCheck($fileId)

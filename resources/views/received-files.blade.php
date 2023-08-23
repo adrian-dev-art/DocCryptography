@@ -41,7 +41,7 @@
                                     </th>
                                     <th scope="col"
                                         class="px-6 py-3 text-left text-xs font-medium text-white dark:text-gray-200 uppercase tracking-wider">
-                                        Decrypt
+                                        Action
                                     </th>
                                     <th scope="col"
                                         class="px-6 py-3 text-left text-xs font-medium text-white dark:text-gray-200 uppercase tracking-wider">
@@ -72,16 +72,39 @@
                                             {{ $receivedFile->created_at }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            @if ($receivedFile->status === 'encrypted')
+                                            {{-- @if ($receivedFile->status === 'decrypted')
+                                            <a href="{{ route('encrypt-file', $receivedFile->id) }}"
+                                                class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600 transition-colors duration-200">
+                                                Encrypt
+                                            </a>
+                                            @elseif ($receivedFile->status === 'encrypted')
                                                 <a href="{{ route('decrypt-file', $receivedFile->id) }}"
                                                     class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-600 transition-colors duration-200">
                                                     Decrypt
                                                 </a>
-                                            @else
-                                                <a href="{{ route('encrypt-file', $receivedFile->id) }}"
-                                                    class="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-600 transition-colors duration-200">
-                                                    Encrypt Now
+                                            @elseif ($receivedFile->status === 'uploaded')
+                                                <a href="{{ route('add-signature', $receivedFile->id) }}"
+                                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-600 transition-colors duration-200 ml-2">
+                                                    Add Signature
                                                 </a>
+                                            @endif --}}
+
+                                            @if ($receivedFile->status === 'uploaded')
+                                                <a href="{{ route('add-signature', $receivedFile->id) }}"
+                                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-600 transition-colors duration-200 ml-2">
+                                                    Add Signature
+                                                </a>
+                                            @elseif ($receivedFile->status === 'signed' || $receivedFile->status === 'decrypted')
+                                                <a href="{{ route('encrypt-file', $receivedFile->id) }}"
+                                                    class="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-600 transition-colors duration-200">
+                                                    Encrypt
+                                                </a>
+                                            @elseif ($receivedFile->status === 'encrypted')
+                                                <a href="{{ route('decrypt-file', $receivedFile->id) }}"
+                                                    class="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-600 transition-colors duration-200">
+                                                    Decrypt
+                                                </a>
+                                           
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
